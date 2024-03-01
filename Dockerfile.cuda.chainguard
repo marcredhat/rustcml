@@ -1,0 +1,84 @@
+# Using the `rust-musl-builder` as base image, instead of
+# the official Rust toolchain
+FROM docker.io/clux/muslrust:stable AS chef
+USER root
+RUN cargo install cargo-chef
+WORKDIR /app
+
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+COPY --from=planner /app/recipe.json recipe.json
+# Notice that we are specifying the --target flag!
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+COPY . .
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin hello_cargo
+
+
+
+#FROM ip-10-10-207-158.us-west-2.compute.internal:9999/b868/cargo-chef:marc as chef
+
+
+FROM cgr.dev/chainguard/pytorch-cuda12:latest
+
+WORKDIR /build
+
+
+ADD build/python-3.10.9-pkg.tar.gz /usr/local
+
+COPY etc/sitecustomize.py /usr/local/lib/python3.10/site-packages/
+COPY etc/pip.conf /etc/pip.conf
+COPY requirements/python-standard-packages/requirements-3.10.txt /build/requirements.txt
+
+
+COPY etc/cloudera.mplstyle /etc/cloudera.mplstyle
+
+
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/hello_cargo /usr/local/bin/
+USER cdsw
+CMD ["/usr/local/bin/hello_cargo"]
+
+
+ENV PYTHON3_VERSION=3.10.9 \
+    ML_RUNTIME_KERNEL="Rust Marc"
+
+
+
+ENV ML_RUNTIME_EDITOR="PBJ Workbench" \
+    ML_RUNTIME_EDITION="Standard" \
+    ML_RUNTIME_JUPYTER_KERNEL_GATEWAY_CMD="jupyter kernelgateway --config=/home/cdsw/.jupyter/jupyter_kernel_gateway_config.py" \
+    JUPYTERLAB_WORKSPACES_DIR=/tmp
+
+
+ENV ML_RUNTIME_JUPYTER_KERNEL_NAME="python3" \
+    ML_RUNTIME_DESCRIPTION="PBJ Workbench Python runtime provided by Cloudera"
+
+ENV ML_RUNTIME_EDITION="Marc Rust Nvidia GPU" \
+    ML_RUNTIME_DESCRIPTION="Rust runtime with CUDA libraries" \
+    ML_RUNTIME_CUDA_VERSION="11.8.0"
+
+
+
+
+ENV \
+    ML_RUNTIME_METADATA_VERSION=2 \
+    ML_RUNTIME_FULL_VERSION=2023.08.2-b8 \
+    ML_RUNTIME_SHORT_VERSION=2023.08 \
+    ML_RUNTIME_MAINTENANCE_VERSION=2 \
+    ML_RUNTIME_GIT_HASH=cdee6e30026323b76feda974d3b6fba48bee5688 \
+    ML_RUNTIME_GBN=45253874
+
+LABEL \
+    com.cloudera.ml.runtime.runtime-metadata-version=$ML_RUNTIME_METADATA_VERSION \
+    com.cloudera.ml.runtime.editor="PBJ Workbench" \
+    com.cloudera.ml.runtime.edition="Rust Musl Python GPU Marc Standard" \
+    com.cloudera.ml.runtime.description="Rust Musl Python GPU" \
+    com.cloudera.ml.runtime.kernel="Rust Musl Python GPU" \
+    com.cloudera.ml.runtime.full-version=$ML_RUNTIME_FULL_VERSION \
+    com.cloudera.ml.runtime.short-version=$ML_RUNTIME_SHORT_VERSION \
+    com.cloudera.ml.runtime.maintenance-version=$ML_RUNTIME_MAINTENANCE_VERSION \
+    com.cloudera.ml.runtime.git-hash=$ML_RUNTIME_GIT_HASH \
+    com.cloudera.ml.runtime.gbn=$ML_RUNTIME_GBN \
+    com.cloudera.ml.runtime.cuda-version=$ML_RUNTIME_CUDA_VERSION
