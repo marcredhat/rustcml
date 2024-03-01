@@ -26,14 +26,14 @@ FROM cgr.dev/chainguard/pytorch-cuda12:latest
 WORKDIR /build
 
 
-ADD build/python-3.10.9-pkg.tar.gz /usr/local
+#ADD build/python-3.10.9-pkg.tar.gz /usr/local
 
-COPY etc/sitecustomize.py /usr/local/lib/python3.10/site-packages/
-COPY etc/pip.conf /etc/pip.conf
-COPY requirements/python-standard-packages/requirements-3.10.txt /build/requirements.txt
+#COPY etc/sitecustomize.py /usr/local/lib/python3.10/site-packages/
+#COPY etc/pip.conf /etc/pip.conf
+#COPY requirements/python-standard-packages/requirements-3.10.txt /build/requirements.txt
 
 
-COPY etc/cloudera.mplstyle /etc/cloudera.mplstyle
+#COPY etc/cloudera.mplstyle /etc/cloudera.mplstyle
 
 
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/hello_cargo /usr/local/bin/
