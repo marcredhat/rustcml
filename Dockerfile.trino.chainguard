@@ -2,13 +2,30 @@
 #https://www.cyberciti.biz/faq/how-to-install-openssh-server-on-alpine-linux-including-docker/
 FROM cgr.dev/chainguard/wolfi-base as builder
 RUN apk update && apk add build-base git openssh go-1.20 python3~3.11 py3.11-pip
-RUN pip install jupyter notebook
+RUN pip install jupyter notebook jupyter_kernel_gateway
 FROM cgr.dev/chainguard/trino:latest
 
 USER root
 
 COPY --from=builder /usr/sbin/sshd /usr/sbin/sshd
 COPY --from=builder /usr/bin/jupyter /usr/bin/jupyter
+COPY --from=builder /usr/bin/jupyter /usr/local/bin/jupyter
+#/usr/lib/python3.11/site-packages/jupyter_core
+#/usr/lib/libpython3.11.so.1.0
+#/bin/sh: /usr/local/bin/ml-runtime-editor: not found
+COPY --from=builder /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
+COPY --from=builder /usr/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/bin /usr/bin
+COPY --from=builder /usr/sbin /usr/sbin
+COPY --from=builder /usr/lib /usr/lib
+
+
+#RUN chmod +x /usr/local/bin/vscode
+#RUN rm -f /usr/local/bin/ml-runtime-editor
+#RUN ln -s /usr/local/bin/vscode ...
+COPY marc/jupyterlab.sh /usr/local/bin/ml-runtime-editor
+RUN chmod +x /usr/local/bin/ml-runtime-editor
+ENV PATH="/usr/lib/python3.11:/usr/lib/python3.11/site-packages:$PATH"
 
 # The UID and username must match user.uid and user.username in
 # config/internal-config.yml To avoid conflicts, this defaults to 8536 after 0.8
@@ -76,9 +93,9 @@ ENV \
 LABEL \
     com.cloudera.ml.runtime.runtime-metadata-version=$ML_RUNTIME_METADATA_VERSION \
     com.cloudera.ml.runtime.editor="PBJWorkbench" \
-    com.cloudera.ml.runtime.edition="Marc 12 ChainGuard Trino Marc Standard" \
-    com.cloudera.ml.runtime.description="Marc 12 Chainguard Trino" \
-    com.cloudera.ml.runtime.kernel="Marc 12 ChainGuard Trino" \
+    com.cloudera.ml.runtime.edition="Marc 7.2 ChainGuard Trino Marc Standard" \
+    com.cloudera.ml.runtime.description="Marc 7.2 Chainguard Trino" \
+    com.cloudera.ml.runtime.kernel="Marc 7.2  ChainGuard Trino" \
     com.cloudera.ml.runtime.full-version=$ML_RUNTIME_FULL_VERSION \
     com.cloudera.ml.runtime.short-version=$ML_RUNTIME_SHORT_VERSION \
     com.cloudera.ml.runtime.maintenance-version=$ML_RUNTIME_MAINTENANCE_VERSION \
@@ -92,4 +109,4 @@ LABEL com.cloudera.ml.runtime.edition=MarcChainGuard
 
 RUN trino --server http://10.129.81.154:31690 --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'
 
-ENTRYPOINT ["trino",  "--server http://10.129.81.154:31690 --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'"]
+#ENTRYPOINT ["trino",  "--server http://10.129.81.154:31690 --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'"]
