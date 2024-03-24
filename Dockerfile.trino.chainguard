@@ -1,0 +1,95 @@
+#https://www.chainguard.dev/unchained/how-to-use-dockerfiles-with-wolfi-base-images
+#https://www.cyberciti.biz/faq/how-to-install-openssh-server-on-alpine-linux-including-docker/
+FROM cgr.dev/chainguard/wolfi-base as builder
+RUN apk update && apk add build-base git openssh go-1.20 python3~3.11 py3.11-pip
+RUN pip install jupyter notebook
+FROM cgr.dev/chainguard/trino:latest
+
+USER root
+
+COPY --from=builder /usr/sbin/sshd /usr/sbin/sshd
+COPY --from=builder /usr/bin/jupyter /usr/bin/jupyter
+
+# The UID and username must match user.uid and user.username in
+# config/internal-config.yml To avoid conflicts, this defaults to 8536 after 0.8
+# release.
+RUN \
+ addgroup  cdsw && \
+ adduser --disabled-password -G "cdsw" -u 8536 cdsw
+
+
+# MLX-50 Allow the engine image to be run as user cdsw upon startup.
+# To do this we must 'chmod 777' /etc related directories.
+RUN for i in /etc /etc/alternatives ; do \
+ if [ -d ${i} ]; then chmod 777 ${i}; fi; \
+ done
+
+# DSE-11162 Base engine changes to support runtime addons.
+# To do this, we must 'chown cdsw' some directories.
+# Make root directory read/writable by cdsw user
+RUN chown cdsw /
+
+# Add permissions to cdsw user recursively to the common directories that gets touched as part
+# of the engine startup process.
+RUN for i in /bin /etc /opt /sbin /usr; do \
+ if [ -d ${i} ]; then \
+   chown cdsw ${i}; \
+   find ${i} -type d -exec chown cdsw {} +; \
+ fi; \
+ done
+
+#RUN chown -R 8536:8536 /opt/conda
+
+WORKDIR /
+
+
+USER cdsw
+ENV PYTHON3_VERSION=3.10.9 \
+    ML_RUNTIME_KERNEL="MarcChainGuard"
+
+
+
+ENV ML_RUNTIME_EDITOR="PBJWorkbench" \
+    ML_RUNTIME_EDITION="Standard" \
+    ML_RUNTIME_JUPYTER_KERNEL_GATEWAY_CMD="jupyter kernelgateway --config=/home/cdsw/.jupyter/jupyter_kernel_gateway_config.py" \
+    JUPYTERLAB_WORKSPACES_DIR=/tmp
+
+
+ENV ML_RUNTIME_JUPYTER_KERNEL_NAME="python3" \
+    ML_RUNTIME_DESCRIPTION="Marc ChainGuard PBJ Workbench Python runtime provided by Cloudera"
+
+ENV ML_RUNTIME_EDITION="Marc Test Chainguard Nvidia GPU" \
+    ML_RUNTIME_DESCRIPTION="Marc Trino runtime" \
+    ML_RUNTIME_CUDA_VERSION="11.8.0"
+
+
+
+
+ENV \
+    ML_RUNTIME_METADATA_VERSION=2 \
+    ML_RUNTIME_FULL_VERSION=2023.08.2-b8 \
+    ML_RUNTIME_SHORT_VERSION=2023.08 \
+    ML_RUNTIME_MAINTENANCE_VERSION=2 \
+    ML_RUNTIME_GIT_HASH=cdee6e30026323b76feda974d3b6fba48bee5688 \
+    ML_RUNTIME_GBN=45253874
+
+LABEL \
+    com.cloudera.ml.runtime.runtime-metadata-version=$ML_RUNTIME_METADATA_VERSION \
+    com.cloudera.ml.runtime.editor="PBJWorkbench" \
+    com.cloudera.ml.runtime.edition="Marc 12 ChainGuard Trino Marc Standard" \
+    com.cloudera.ml.runtime.description="Marc 12 Chainguard Trino" \
+    com.cloudera.ml.runtime.kernel="Marc 12 ChainGuard Trino" \
+    com.cloudera.ml.runtime.full-version=$ML_RUNTIME_FULL_VERSION \
+    com.cloudera.ml.runtime.short-version=$ML_RUNTIME_SHORT_VERSION \
+    com.cloudera.ml.runtime.maintenance-version=$ML_RUNTIME_MAINTENANCE_VERSION \
+    com.cloudera.ml.runtime.git-hash=$ML_RUNTIME_GIT_HASH \
+    com.cloudera.ml.runtime.gbn=$ML_RUNTIME_GBN \
+    com.cloudera.ml.runtime.cuda-version=$ML_RUNTIME_CUDA_VERSION
+
+
+LABEL com.cloudera.ml.runtime.edition=MarcChainGuard
+
+
+RUN trino --server http://10.129.81.154:31690 --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'
+
+ENTRYPOINT ["trino",  "--server http://10.129.81.154:31690 --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'"]
