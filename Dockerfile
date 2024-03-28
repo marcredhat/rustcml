@@ -1,5 +1,5 @@
 
-# Using the `rust-musl-builder` as base image, instead of 
+# Using the `rust-musl-builder` as base image, instead of
 # the official Rust toolchain
 FROM docker.io/clux/muslrust:stable AS chef
 USER root
@@ -181,7 +181,7 @@ ENV \
     ML_RUNTIME_GBN=45253874
 
 LABEL \
-    com.cloudera.ml.runtime.runtime-metadata-version=$ML_RUNTIME_METADATA_VERSION \
+    com.cloudera.ml.runtime.runtime-metadata-version=2 \
     com.cloudera.ml.runtime.editor="PBJ Workbench" \
     com.cloudera.ml.runtime.edition="Rust Musl Python GPU Marc Standard" \
     com.cloudera.ml.runtime.description="Rust Musl Python GPU" \
@@ -192,4 +192,3 @@ LABEL \
     com.cloudera.ml.runtime.git-hash=$ML_RUNTIME_GIT_HASH \
     com.cloudera.ml.runtime.gbn=$ML_RUNTIME_GBN \
     com.cloudera.ml.runtime.cuda-version=$ML_RUNTIME_CUDA_VERSION
-
